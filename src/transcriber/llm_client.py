@@ -20,9 +20,6 @@ class LLMClient:
     def __init__(self, model: str = "gemini-2.5-flash"):
         self.model = model
         
-        # Configure LiteLLM
-        litellm.set_verbose = False  # Reduce logging noise
-        
         # System message for transcription
         self.system_message = """You are a professional transcriptionist. Your task is to transcribe audio content with high accuracy.
 
@@ -194,6 +191,9 @@ If you are provided with context from a previous chunk, use it to maintain speak
             logger.info(f"Transcribing chunk {chunk.chunk_index} with model {self.model}")
             if context:
                 logger.debug(f"Using context: {context[:100]}...")
+            
+            # Log message structure without the actual audio data
+            logger.debug(f"Sending {len(messages)} messages, audio size: {len(audio_bytes)} bytes")
             
             # Make API call
             response = completion(

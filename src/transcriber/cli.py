@@ -5,6 +5,13 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+# Disable LiteLLM logging to prevent audio data leakage in verbose mode
+import litellm
+litellm.set_verbose = False
+
+# Disable the main LiteLLM logger that outputs sensitive data
+logging.getLogger("LiteLLM").setLevel(logging.CRITICAL)
+
 import typer
 from rich.console import Console
 from rich.logging import RichHandler
@@ -42,10 +49,15 @@ def setup_logging(verbose: bool = False):
         handlers=[RichHandler(console=console, show_path=False)]
     )
     
-    # Reduce noise from external libraries
-    logging.getLogger("litellm").setLevel(logging.WARNING)
+    # Prevent LiteLLM from logging sensitive audio data in verbose mode
+    logging.getLogger("LiteLLM").setLevel(logging.CRITICAL)
+    
+    # Reduce noise from other external libraries
     logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("pydub").setLevel(logging.WARNING)
+    logging.getLogger("openai").setLevel(logging.WARNING)
+    logging.getLogger("google").setLevel(logging.WARNING)
 
 
 def progress_callback(current: int, total: int, message: str):
