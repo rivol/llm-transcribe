@@ -26,14 +26,16 @@ class LLMClient:
 Instructions:
 1. Listen to the audio carefully and transcribe all speech
 2. Include timestamps for each speaker turn in the format [HH:MM:SS]
-3. Identify speakers by name when possible (e.g., "John", "Sarah")
-4. If names are not clear, use roles when identifiable (e.g., "Manager", "Customer")
-5. If neither names nor roles are clear, use "Speaker 1", "Speaker 2", etc.
-6. Maintain speaker consistency throughout the transcription
-7. Format each line as: [timestamp] Speaker: text
-8. Be accurate with timestamps and speaker attribution
-9. Include all speech, even brief responses like "yes", "okay", etc.
-10. Do not add commentary or explanations, only transcribe what is said
+3. IMPORTANT: Use timestamps relative to the original audio file, not relative to this chunk
+4. When provided with a chunk start time, add that offset to all timestamps within the chunk
+5. Identify speakers by name when possible (e.g., "John", "Sarah")
+6. If names are not clear, use roles when identifiable (e.g., "Manager", "Customer")
+7. If neither names nor roles are clear, use "Speaker 1", "Speaker 2", etc.
+8. Maintain speaker consistency throughout the transcription
+9. Format each line as: [timestamp] Speaker: text
+10. Be accurate with timestamps and speaker attribution
+11. Include all speech, even brief responses like "yes", "okay", etc.
+12. Do not add commentary or explanations, only transcribe what is said
 
 Expected output format examples:
 
@@ -70,11 +72,12 @@ If you are provided with context from a previous chunk, use it to maintain speak
         """
         return base64.b64encode(audio_bytes).decode('utf-8')
     
-    def create_messages(self, audio_bytes: bytes, context: Optional[str] = None) -> List[dict]:
+    def create_messages(self, audio_bytes: bytes, chunk_start_seconds: float, context: Optional[str] = None) -> List[dict]:
         """Create message array for LLM API.
         
         Args:
             audio_bytes: Audio data as bytes
+            chunk_start_seconds: Start time of this chunk in seconds
             context: Optional context from previous chunk
             
         Returns:
@@ -87,10 +90,16 @@ If you are provided with context from a previous chunk, use it to maintain speak
             }
         ]
         
-        # Create the main transcription prompt
-        transcription_prompt = "Please transcribe this audio:"
+        # Convert start time to HH:MM:SS format
+        start_hours = int(chunk_start_seconds // 3600)
+        start_minutes = int((chunk_start_seconds % 3600) // 60)
+        start_seconds = int(chunk_start_seconds % 60)
+        start_time_str = f"{start_hours:02d}:{start_minutes:02d}:{start_seconds:02d}"
+        
+        # Create the main transcription prompt with timing information
+        transcription_prompt = f"Please transcribe this audio chunk starting at {start_time_str}. Use timestamps relative to the original audio file (starting from {start_time_str})."
         if context:
-            transcription_prompt = f"Context from previous chunk (for speaker consistency):\n{context}\n\nNow transcribe this new audio chunk:"
+            transcription_prompt = f"Context from previous chunk (for speaker consistency):\n{context}\n\nNow transcribe this new audio chunk starting at {start_time_str}. Use timestamps relative to the original audio file (starting from {start_time_str})."
         
         # Add audio using Gemini's expected format
         audio_base64 = self.encode_audio_to_base64(audio_bytes)
@@ -111,6 +120,45 @@ If you are provided with context from a previous chunk, use it to maintain speak
         })
         
         return messages
+    
+    def _log_llm_messages(self, messages: List[dict]) -> None:
+        """Log LLM messages in verbose mode, excluding audio data.
+        
+        Args:
+            messages: List of message dictionaries to log
+        """
+        logger.debug("LLM Messages:")
+        for i, message in enumerate(messages):
+            role = message.get("role", "unknown")
+            content = message.get("content", "")
+            
+            # Handle different content types
+            if isinstance(content, str):
+                # Simple text content
+                logger.debug(f"  Message {i+1} ({role}): {content}")
+            elif isinstance(content, list):
+                # Multimodal content (text + files)
+                logger.debug(f"  Message {i+1} ({role}):")
+                for j, item in enumerate(content):
+                    if item.get("type") == "text":
+                        text_content = item.get("text", "")
+                        logger.debug(f"    Text part {j+1}: {text_content}")
+                    elif item.get("type") == "file":
+                        # Don't log file data, just metadata
+                        file_info = item.get("file", {})
+                        file_data = file_info.get("file_data", "")
+                        if file_data.startswith("data:audio/"):
+                            # Extract just the metadata, not the data
+                            parts = file_data.split(",", 1)
+                            mime_type = parts[0] if len(parts) > 0 else "unknown"
+                            data_size = len(parts[1]) if len(parts) > 1 else 0
+                            logger.debug(f"    File part {j+1}: {mime_type}, size: {data_size} chars")
+                        else:
+                            logger.debug(f"    File part {j+1}: {file_data[:100]}...")
+                    else:
+                        logger.debug(f"    Part {j+1}: {item}")
+            else:
+                logger.debug(f"  Message {i+1} ({role}): {content}")
     
     def parse_transcription_response(self, response_text: str) -> List[TranscriptionLine]:
         """Parse LLM response into TranscriptionLine objects.
@@ -186,7 +234,7 @@ If you are provided with context from a previous chunk, use it to maintain speak
         
         try:
             # Create messages
-            messages = self.create_messages(audio_bytes, context)
+            messages = self.create_messages(audio_bytes, chunk.start_time_seconds, context)
             
             logger.info(f"Transcribing chunk {chunk.chunk_index} with model {self.model}")
             if context:
@@ -194,6 +242,9 @@ If you are provided with context from a previous chunk, use it to maintain speak
             
             # Log message structure without the actual audio data
             logger.debug(f"Sending {len(messages)} messages, audio size: {len(audio_bytes)} bytes")
+            
+            # Log messages in verbose mode (excluding audio data)
+            self._log_llm_messages(messages)
             
             # Make API call
             response = completion(
@@ -205,6 +256,9 @@ If you are provided with context from a previous chunk, use it to maintain speak
             
             # Extract response text
             response_text = response.choices[0].message.content
+            
+            # Log LLM response in verbose mode
+            logger.debug(f"LLM Response:\n{response_text}")
             
             # Parse transcription lines
             lines = self.parse_transcription_response(response_text)
@@ -242,16 +296,22 @@ If you are provided with context from a previous chunk, use it to maintain speak
         """
         try:
             # Simple test message
+            test_messages = [
+                {"role": "user", "content": "Hello, please respond with 'OK' to confirm you're working."}
+            ]
+            
+            # Log test messages in verbose mode
+            self._log_llm_messages(test_messages)
+            
             response = completion(
                 model=self.model,
-                messages=[
-                    {"role": "user", "content": "Hello, please respond with 'OK' to confirm you're working."}
-                ],
+                messages=test_messages,
                 max_tokens=10,
                 temperature=0
             )
             
             response_text = response.choices[0].message.content.strip()
+            logger.debug(f"Test LLM Response: {response_text}")
             logger.info(f"Connection test successful: {response_text}")
             return True
             
