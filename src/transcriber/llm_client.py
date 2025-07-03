@@ -38,6 +38,28 @@ Instructions:
 9. Include all speech, even brief responses like "yes", "okay", etc.
 10. Do not add commentary or explanations, only transcribe what is said
 
+Expected output format examples:
+
+With named speakers:
+[00:01:23] John: Welcome everyone to today's meeting.
+[00:01:27] Sarah: Thank you, John. I'm excited to be here.
+[00:01:30] John: Great! Let's start with the quarterly review.
+
+With role-based speakers:
+[00:02:15] Manager: How are we tracking against our goals?
+[00:02:18] Analyst: We're about 15% ahead of schedule.
+[00:02:22] Manager: Excellent news.
+
+With numerical speakers:
+[00:03:45] Speaker 1: Do we have the latest figures?
+[00:03:47] Speaker 2: Yes, I can share those now.
+[00:03:52] Speaker 1: Perfect, go ahead.
+
+Include brief responses:
+[00:04:10] Speaker 1: Are you ready to proceed?
+[00:04:11] Speaker 2: Yes.
+[00:04:12] Speaker 1: Okay, let's continue.
+
 If you are provided with context from a previous chunk, use it to maintain speaker consistency and conversation flow."""
     
     def encode_audio_to_base64(self, audio_bytes: bytes) -> str:
@@ -68,27 +90,24 @@ If you are provided with context from a previous chunk, use it to maintain speak
             }
         ]
         
-        # Add context if provided
+        # Create the main transcription prompt
+        transcription_prompt = "Please transcribe this audio:"
         if context:
-            messages.append({
-                "role": "user",
-                "content": f"Context from previous chunk (for speaker consistency):\n{context}\n\nNow transcribe this new audio chunk:"
-            })
+            transcription_prompt = f"Context from previous chunk (for speaker consistency):\n{context}\n\nNow transcribe this new audio chunk:"
         
-        # Add audio
+        # Add audio using Gemini's expected format
         audio_base64 = self.encode_audio_to_base64(audio_bytes)
         messages.append({
             "role": "user",
             "content": [
                 {
                     "type": "text",
-                    "text": "Please transcribe this audio:" if not context else "Please transcribe this audio chunk:"
+                    "text": transcription_prompt
                 },
                 {
-                    "type": "audio",
-                    "audio": {
-                        "data": audio_base64,
-                        "format": "wav"
+                    "type": "file",
+                    "file": {
+                        "file_data": f"data:audio/wav;base64,{audio_base64}"
                     }
                 }
             ]
