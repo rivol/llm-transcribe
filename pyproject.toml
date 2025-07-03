@@ -4,4 +4,11 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "audioop-lts>=0.2.1",
+    "litellm>=1.73.6",
+    "pydantic>=2.11.7",
+    "pydub>=0.25.1",
+    "rich>=14.0.0",
+    "typer>=0.16.0",
+]
