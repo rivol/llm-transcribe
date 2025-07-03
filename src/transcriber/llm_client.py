@@ -26,8 +26,8 @@ class LLMClient:
 Instructions:
 1. Listen to the audio carefully and transcribe all speech
 2. Include timestamps for each speaker turn in the format [HH:MM:SS]
-3. IMPORTANT: Use timestamps relative to the original audio file, not relative to this chunk
-4. When provided with a chunk start time, add that offset to all timestamps within the chunk
+3. IMPORTANT: Use timestamps relative to this audio chunk, starting from [00:00:00]
+4. The first speaker should have a timestamp near [00:00:00], then increment naturally
 5. Identify speakers by name when possible (e.g., "John", "Sarah")
 6. If names are not clear, use roles when identifiable (e.g., "Manager", "Customer")
 7. If neither names nor roles are clear, use "Speaker 1", "Speaker 2", etc.
@@ -90,16 +90,12 @@ If you are provided with context from a previous chunk, use it to maintain speak
             }
         ]
         
-        # Convert start time to HH:MM:SS format
-        start_hours = int(chunk_start_seconds // 3600)
-        start_minutes = int((chunk_start_seconds % 3600) // 60)
-        start_seconds = int(chunk_start_seconds % 60)
-        start_time_str = f"{start_hours:02d}:{start_minutes:02d}:{start_seconds:02d}"
-        
-        # Create the main transcription prompt with timing information
-        transcription_prompt = f"Please transcribe this audio chunk starting at {start_time_str}. Use timestamps relative to the original audio file (starting from {start_time_str})."
+        # Create the main transcription prompt with relative timing instructions
+        transcription_prompt = "Please transcribe this audio chunk. Start timestamps from [00:00:00] and increment naturally."
         if context:
-            transcription_prompt = f"Context from previous chunk (for speaker consistency):\n{context}\n\nNow transcribe this new audio chunk starting at {start_time_str}. Use timestamps relative to the original audio file (starting from {start_time_str})."
+            # Convert context timestamps to be relative to this chunk
+            relative_context = self._convert_context_to_relative(context, chunk_start_seconds)
+            transcription_prompt = f"Context from previous chunk (for speaker consistency):\n{relative_context}\n\nNow transcribe this new audio chunk. Start timestamps from [00:00:00] and increment naturally."
         
         # Add audio using Gemini's expected format
         audio_base64 = self.encode_audio_to_base64(audio_bytes)
@@ -120,6 +116,71 @@ If you are provided with context from a previous chunk, use it to maintain speak
         })
         
         return messages
+    
+    def _convert_context_to_relative(self, context: str, chunk_start_seconds: float) -> str:
+        """Convert absolute timestamps in context to relative timestamps for current chunk.
+        
+        Args:
+            context: Context string with absolute timestamps
+            chunk_start_seconds: Start time of current chunk in seconds
+            
+        Returns:
+            Context string with relative timestamps
+        """
+        def convert_timestamp(match):
+            timestamp_str = match.group(1)  # HH:MM:SS
+            try:
+                time_parts = timestamp_str.split(':')
+                absolute_seconds = int(time_parts[0]) * 3600 + int(time_parts[1]) * 60 + int(time_parts[2])
+                
+                # Convert to relative seconds
+                relative_seconds = absolute_seconds - chunk_start_seconds
+                
+                # Ensure non-negative (context should be from end of previous chunk)
+                if relative_seconds < 0:
+                    relative_seconds = 0
+                
+                # Convert back to HH:MM:SS format
+                rel_hours = int(relative_seconds // 3600)
+                rel_minutes = int((relative_seconds % 3600) // 60)
+                rel_secs = int(relative_seconds % 60)
+                
+                return f"[{rel_hours:02d}:{rel_minutes:02d}:{rel_secs:02d}]"
+            except (ValueError, IndexError):
+                # Return original if parsing fails
+                return match.group(0)
+        
+        # Replace all timestamps [HH:MM:SS] with relative versions
+        return re.sub(r'\[(\d{2}:\d{2}:\d{2})\]', convert_timestamp, context)
+    
+    def _convert_relative_to_absolute_timestamp(self, relative_timestamp: str, chunk_start_seconds: float) -> str:
+        """Convert relative timestamp to absolute timestamp.
+        
+        Args:
+            relative_timestamp: Timestamp in format [HH:MM:SS] relative to chunk start
+            chunk_start_seconds: Start time of chunk in seconds
+            
+        Returns:
+            Absolute timestamp in format [HH:MM:SS]
+        """
+        try:
+            # Parse relative timestamp
+            timestamp_str = relative_timestamp.strip('[]')
+            time_parts = timestamp_str.split(':')
+            relative_seconds = int(time_parts[0]) * 3600 + int(time_parts[1]) * 60 + int(time_parts[2])
+            
+            # Convert to absolute seconds
+            absolute_seconds = relative_seconds + chunk_start_seconds
+            
+            # Convert back to HH:MM:SS format
+            abs_hours = int(absolute_seconds // 3600)
+            abs_minutes = int((absolute_seconds % 3600) // 60)
+            abs_secs = int(absolute_seconds % 60)
+            
+            return f"[{abs_hours:02d}:{abs_minutes:02d}:{abs_secs:02d}]"
+        except (ValueError, IndexError):
+            # Return original if parsing fails
+            return relative_timestamp
     
     def _log_llm_messages(self, messages: List[dict]) -> None:
         """Log LLM messages in verbose mode, excluding audio data.
@@ -160,14 +221,15 @@ If you are provided with context from a previous chunk, use it to maintain speak
             else:
                 logger.debug(f"  Message {i+1} ({role}): {content}")
     
-    def parse_transcription_response(self, response_text: str) -> List[TranscriptionLine]:
+    def parse_transcription_response(self, response_text: str, chunk_start_seconds: float) -> List[TranscriptionLine]:
         """Parse LLM response into TranscriptionLine objects.
         
         Args:
-            response_text: Raw response from LLM
+            response_text: Raw response from LLM with relative timestamps
+            chunk_start_seconds: Start time of chunk to convert relative to absolute timestamps
             
         Returns:
-            List of TranscriptionLine objects
+            List of TranscriptionLine objects with absolute timestamps
         """
         lines = []
         
@@ -184,12 +246,15 @@ If you are provided with context from a previous chunk, use it to maintain speak
             match = re.match(r'\[(\d{2}:\d{2}:\d{2})\]\s*([^:]+):\s*(.+)', line)
             
             if match:
-                timestamp = f"[{match.group(1)}]"
+                relative_timestamp = f"[{match.group(1)}]"
                 speaker = match.group(2).strip()
                 text = match.group(3).strip()
                 
+                # Convert relative timestamp to absolute
+                absolute_timestamp = self._convert_relative_to_absolute_timestamp(relative_timestamp, chunk_start_seconds)
+                
                 lines.append(TranscriptionLine(
-                    timestamp=timestamp,
+                    timestamp=absolute_timestamp,
                     speaker=speaker,
                     text=text
                 ))
@@ -200,7 +265,10 @@ If you are provided with context from a previous chunk, use it to maintain speak
                 # Try to find at least a timestamp
                 timestamp_match = re.search(r'\[(\d{2}:\d{2}:\d{2})\]', line)
                 if timestamp_match:
-                    timestamp = f"[{timestamp_match.group(1)}]"
+                    relative_timestamp = f"[{timestamp_match.group(1)}]"
+                    # Convert relative timestamp to absolute
+                    absolute_timestamp = self._convert_relative_to_absolute_timestamp(relative_timestamp, chunk_start_seconds)
+                    
                     # Use the rest as speaker + text
                     remaining = line.replace(timestamp_match.group(0), '').strip()
                     if ':' in remaining:
@@ -212,7 +280,7 @@ If you are provided with context from a previous chunk, use it to maintain speak
                         text = remaining
                     
                     lines.append(TranscriptionLine(
-                        timestamp=timestamp,
+                        timestamp=absolute_timestamp,
                         speaker=speaker,
                         text=text
                     ))
@@ -260,8 +328,8 @@ If you are provided with context from a previous chunk, use it to maintain speak
             # Log LLM response in verbose mode
             logger.debug(f"LLM Response:\n{response_text}")
             
-            # Parse transcription lines
-            lines = self.parse_transcription_response(response_text)
+            # Parse transcription lines (convert relative timestamps to absolute)
+            lines = self.parse_transcription_response(response_text, chunk.start_time_seconds)
             
             processing_time = time.time() - start_time
             
