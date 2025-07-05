@@ -26,9 +26,9 @@ class LLMClient:
 
 Instructions:
 1. Listen to the audio carefully and transcribe all speech
-2. Include timestamps for each speaker turn in the format [HH:MM:SS]
-3. IMPORTANT: Use timestamps relative to this audio chunk, starting from [00:00:00]
-4. The first speaker should have a timestamp near [00:00:00], then increment naturally
+2. Include timestamps for each speaker turn in the format [MM:SS]
+3. IMPORTANT: Use timestamps relative to this audio chunk, starting from [00:00]
+4. The first speaker should have a timestamp near [00:00], then increment naturally
 5. Identify speakers by name when possible (e.g., "John", "Sarah")
 6. If names are not clear, use roles when identifiable (e.g., "Manager", "Customer")
 7. If neither names nor roles are clear, use "Speaker 1", "Speaker 2", etc.
@@ -41,24 +41,24 @@ Instructions:
 Expected output format examples:
 
 With named speakers:
-[00:01:23] John: Welcome everyone to today's meeting.
-[00:01:27] Sarah: Thank you, John. I'm excited to be here.
-[00:01:30] John: Great! Let's start with the quarterly review.
+[01:23] John: Welcome everyone to today's meeting.
+[01:27] Sarah: Thank you, John. I'm excited to be here.
+[01:30] John: Great! Let's start with the quarterly review.
 
 With role-based speakers:
-[00:02:15] Manager: How are we tracking against our goals?
-[00:02:18] Analyst: We're about 15% ahead of schedule.
-[00:02:22] Manager: Excellent news.
+[02:15] Manager: How are we tracking against our goals?
+[02:18] Analyst: We're about 15% ahead of schedule.
+[02:22] Manager: Excellent news.
 
 With numerical speakers:
-[00:03:45] Speaker 1: Do we have the latest figures?
-[00:03:47] Speaker 2: Yes, I can share those now.
-[00:03:52] Speaker 1: Perfect, go ahead.
+[03:45] Speaker 1: Do we have the latest figures?
+[03:47] Speaker 2: Yes, I can share those now.
+[03:52] Speaker 1: Perfect, go ahead.
 
 Include brief responses:
-[00:04:10] Speaker 1: Are you ready to proceed?
-[00:04:11] Speaker 2: Yes.
-[00:04:12] Speaker 1: Okay, let's continue.
+[04:10] Speaker 1: Are you ready to proceed?
+[04:11] Speaker 2: Yes.
+[04:12] Speaker 1: Okay, let's continue.
 
 If you are provided with context from a previous chunk, use it to maintain speaker consistency and conversation flow."""
     
@@ -92,11 +92,11 @@ If you are provided with context from a previous chunk, use it to maintain speak
         ]
         
         # Create the main transcription prompt with relative timing instructions
-        transcription_prompt = "Please transcribe this audio chunk. Start timestamps from [00:00:00] and increment naturally."
+        transcription_prompt = "Please transcribe this audio chunk. Start timestamps from [00:00], use [MM:SS] format, and increment naturally."
         if context:
             # Convert context timestamps to be relative to this chunk
             relative_context = self._convert_context_to_relative(context, chunk_start_seconds)
-            transcription_prompt = f"Context from previous chunk (for speaker consistency):\n{relative_context}\n\nNow transcribe this new audio chunk. Start timestamps from [00:00:00] and increment naturally."
+            transcription_prompt = f"Context from previous chunk (for speaker consistency):\n{relative_context}\n\nNow transcribe this new audio chunk. Start timestamps from [00:00] and increment naturally."
         
         # Add audio using Gemini's expected format
         audio_base64 = self.encode_audio_to_base64(audio_bytes)
@@ -141,8 +141,10 @@ If you are provided with context from a previous chunk, use it to maintain speak
                 if relative_seconds < 0:
                     relative_seconds = 0
                 
-                # Convert back to HH:MM:SS format using utility
-                return format_timestamp(relative_seconds)
+                # Convert back to MM:SS format for LLM
+                minutes = int(relative_seconds // 60)
+                seconds = int(relative_seconds % 60)
+                return f"[{minutes:02d}:{seconds:02d}]"
             except (ValueError, IndexError):
                 # Return original if parsing fails
                 return match.group(0)
@@ -154,7 +156,7 @@ If you are provided with context from a previous chunk, use it to maintain speak
         """Convert relative timestamp to absolute seconds.
         
         Args:
-            relative_timestamp: Timestamp in format [HH:MM:SS] relative to chunk start
+            relative_timestamp: Timestamp in format [MM:SS] relative to chunk start
             chunk_start_seconds: Start time of chunk in seconds
             
         Returns:
@@ -164,7 +166,12 @@ If you are provided with context from a previous chunk, use it to maintain speak
             # Parse relative timestamp
             timestamp_str = relative_timestamp.strip('[]')
             time_parts = timestamp_str.split(':')
-            relative_seconds = int(time_parts[0]) * 3600 + int(time_parts[1]) * 60 + int(time_parts[2])
+            # Handle MM:SS format
+            if len(time_parts) == 2:
+                relative_seconds = int(time_parts[0]) * 60 + int(time_parts[1])
+            else:
+                # Fallback for HH:MM:SS format (backwards compatibility)
+                relative_seconds = int(time_parts[0]) * 3600 + int(time_parts[1]) * 60 + int(time_parts[2])
             
             # Convert to absolute seconds
             return relative_seconds + chunk_start_seconds
@@ -232,8 +239,8 @@ If you are provided with context from a previous chunk, use it to maintain speak
                 continue
             
             # Try to parse timestamp and speaker
-            # Expected format: [HH:MM:SS] Speaker: text
-            match = re.match(r'\[(\d{2}:\d{2}:\d{2})\]\s*([^:]+):\s*(.+)', line)
+            # Expected format: [MM:SS] Speaker: text
+            match = re.match(r'\[(\d{2}:\d{2})\]\s*([^:]+):\s*(.+)', line)
             
             if match:
                 relative_timestamp = f"[{match.group(1)}]"
@@ -253,7 +260,7 @@ If you are provided with context from a previous chunk, use it to maintain speak
                 logger.warning(f"Could not parse line: {line}")
                 
                 # Try to find at least a timestamp
-                timestamp_match = re.search(r'\[(\d{2}:\d{2}:\d{2})\]', line)
+                timestamp_match = re.search(r'\[(\d{2}:\d{2})\]', line)
                 if timestamp_match:
                     relative_timestamp = f"[{timestamp_match.group(1)}]"
                     # Convert relative timestamp to absolute seconds

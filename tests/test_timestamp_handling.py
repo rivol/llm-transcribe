@@ -23,7 +23,7 @@ class TestTimestampHandling:
         result = client._convert_context_to_relative(context, chunk_start_seconds)
         
         # Should convert to relative timestamps
-        expected = "[00:00:30] Alice: Previous statement\n[00:00:45] Bob: Another statement"
+        expected = "[00:30] Alice: Previous statement\n[00:45] Bob: Another statement"
         assert result == expected
     
     def test_convert_context_to_relative_negative_handled(self):
@@ -36,8 +36,8 @@ class TestTimestampHandling:
         
         result = client._convert_context_to_relative(context, chunk_start_seconds)
         
-        # Should convert to 00:00:00 (non-negative)
-        expected = "[00:00:00] Alice: Previous statement"
+        # Should convert to 00:00 (non-negative)
+        expected = "[00:00] Alice: Previous statement"
         assert result == expected
     
     def test_convert_context_to_relative_multiple_timestamps(self):
@@ -49,7 +49,7 @@ class TestTimestampHandling:
         
         result = client._convert_context_to_relative(context, chunk_start_seconds)
         
-        expected = "[00:00:15] Alice: First\n[00:00:30] Bob: Second\n[00:00:45] Alice: Third"
+        expected = "[00:15] Alice: First\n[00:30] Bob: Second\n[00:45] Alice: Third"
         assert result == expected
     
     def test_convert_relative_to_absolute_seconds(self):
@@ -57,15 +57,15 @@ class TestTimestampHandling:
         client = LLMClient()
         
         # Test various relative timestamps
-        assert client._convert_relative_to_absolute_seconds("[00:00:30]", 540.0) == 570.0
-        assert client._convert_relative_to_absolute_seconds("[00:01:15]", 540.0) == 615.0
-        assert client._convert_relative_to_absolute_seconds("[00:02:00]", 540.0) == 660.0
+        assert client._convert_relative_to_absolute_seconds("[00:30]", 540.0) == 570.0
+        assert client._convert_relative_to_absolute_seconds("[01:15]", 540.0) == 615.0
+        assert client._convert_relative_to_absolute_seconds("[02:00]", 540.0) == 660.0
     
     def test_convert_relative_to_absolute_seconds_zero(self):
         """Test converting zero relative timestamp."""
         client = LLMClient()
         
-        result = client._convert_relative_to_absolute_seconds("[00:00:00]", 540.0)
+        result = client._convert_relative_to_absolute_seconds("[00:00]", 540.0)
         assert result == 540.0
     
     def test_convert_relative_to_absolute_seconds_invalid(self):
@@ -80,7 +80,7 @@ class TestTimestampHandling:
         """Test parsing basic transcription response."""
         client = LLMClient()
         
-        response = "[00:00:30] Alice: Hello everyone\n[00:01:05] Bob: Hi there"
+        response = "[00:30] Alice: Hello everyone\n[01:05] Bob: Hi there"
         chunk_start_seconds = 540.0  # 9 minutes
         
         lines = client.parse_transcription_response(response, chunk_start_seconds)
@@ -101,7 +101,7 @@ class TestTimestampHandling:
         """Test parsing response with malformed line."""
         client = LLMClient()
         
-        response = "[00:00:30] Alice: Hello everyone\nMalformed line\n[00:01:05] Bob: Hi there"
+        response = "[00:30] Alice: Hello everyone\nMalformed line\n[01:05] Bob: Hi there"
         chunk_start_seconds = 540.0
         
         with patch('src.transcriber.llm_client.logger') as mock_logger:
@@ -119,7 +119,7 @@ class TestTimestampHandling:
         """Test parsing response with timestamp but no clear speaker/text format."""
         client = LLMClient()
         
-        response = "[00:00:30] Alice says hello to everyone"
+        response = "[00:30] Alice says hello to everyone"
         chunk_start_seconds = 540.0
         
         with patch('src.transcriber.llm_client.logger') as mock_logger:
@@ -138,7 +138,7 @@ class TestTimestampHandling:
         """Test parsing response with colon in the text."""
         client = LLMClient()
         
-        response = "[00:00:30] Alice: The time is 12:30 PM"
+        response = "[00:30] Alice: The time is 12:30 PM"
         chunk_start_seconds = 540.0
         
         lines = client.parse_transcription_response(response, chunk_start_seconds)
@@ -152,7 +152,7 @@ class TestTimestampHandling:
         """Test parsing response with empty lines."""
         client = LLMClient()
         
-        response = "[00:00:30] Alice: Hello\n\n[00:01:05] Bob: Hi\n\n"
+        response = "[00:30] Alice: Hello\n\n[01:05] Bob: Hi\n\n"
         chunk_start_seconds = 540.0
         
         lines = client.parse_transcription_response(response, chunk_start_seconds)
