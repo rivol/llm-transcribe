@@ -67,6 +67,22 @@ Include brief responses:
 [04:11] Speaker 2: Yes.
 [04:12] Speaker 1: Okay, let's continue.
 
+When provided with context from a previous chunk:
+- First output the context lines EXACTLY as shown
+- Then continue transcribing from where the context ends
+- This ensures perfect continuity between chunks
+
+Example with context:
+Given context:
+[00:30] Speaker 1: The quarterly results show
+[00:45] Speaker 2: That's interesting
+
+Your output should be:
+[00:30] Speaker 1: The quarterly results show
+[00:45] Speaker 2: That's interesting
+[00:48] Speaker 1: significant growth in three key areas
+[01:03] Speaker 2: Which areas specifically?
+
 If you are provided with context from a previous chunk, use it to maintain speaker consistency and conversation flow."""
     
     def encode_audio_to_base64(self, audio_bytes: bytes) -> str:
@@ -99,11 +115,22 @@ If you are provided with context from a previous chunk, use it to maintain speak
         ]
         
         # Create the main transcription prompt with relative timing instructions
-        transcription_prompt = "Please transcribe this audio chunk. Start timestamps from [00:00], use [MM:SS] format, and increment naturally."
         if context:
             # Convert context timestamps to be relative to this chunk
             relative_context = self._convert_context_to_relative(context, chunk_start_seconds)
-            transcription_prompt = f"Context from previous chunk (for speaker consistency):\n{relative_context}\n\nNow transcribe this new audio chunk. Start timestamps from [00:00] and increment naturally."
+            transcription_prompt = f"""Context from previous chunk:
+{relative_context}
+
+IMPORTANT INSTRUCTIONS:
+1. First, output the context above EXACTLY as shown (verbatim)
+2. Then, continue transcribing from where the context ends
+3. Maintain speaker consistency throughout
+4. The context helps you understand the conversation flow and speaker identities
+
+Start your output by repeating the context lines exactly, then add new transcription."""
+        else:
+            # First chunk - normal prompt
+            transcription_prompt = "Please transcribe this audio chunk. Start timestamps from [00:00], use [MM:SS] format, and increment naturally."
         
         # Add audio using Gemini's expected format
         audio_base64 = self.encode_audio_to_base64(audio_bytes)
