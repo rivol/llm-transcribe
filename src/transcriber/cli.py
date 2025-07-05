@@ -115,6 +115,11 @@ def main(
         False,
         "-y", "--yes",
         help="Skip confirmation prompts"
+    ),
+    context: Optional[str] = typer.Option(
+        None,
+        "-c", "--context",
+        help="Extra context about the meeting (e.g., 'Meeting between John and Kate about Q3 revenue projections')"
     )
 ):
     """Transcribe audio files using Large Language Models."""
@@ -149,6 +154,8 @@ def main(
     console.print(f"[blue]Chunk Duration:[/blue] {chunk_duration} minutes")
     console.print(f"[blue]Overlap Duration:[/blue] {overlap_duration} minutes")
     console.print(f"[blue]Export Formats:[/blue] {', '.join(export_format_list)}")
+    if context:
+        console.print(f"[blue]Context:[/blue] {context}")
     
     # Create transcription engine
     try:
@@ -176,7 +183,7 @@ def main(
     # Create and prepare job
     try:
         console.print("[yellow]Preparing transcription job...[/yellow]")
-        job = engine.create_job(audio_file, output, model)
+        job = engine.create_job(audio_file, output, model, context)
         job = engine.prepare_job(job)
         
         console.print(f"[green]Job prepared:[/green] {len(job.chunks)} chunks to process")

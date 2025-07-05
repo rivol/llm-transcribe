@@ -21,13 +21,14 @@ class TranscriptionEngine:
         self.audio_processor = AudioProcessor(config)
         self.llm_client = LLMClient(model)
     
-    def create_job(self, input_file: Path, output_file: Path, model: Optional[str] = None) -> TranscriptionJob:
+    def create_job(self, input_file: Path, output_file: Path, model: Optional[str] = None, context: Optional[str] = None) -> TranscriptionJob:
         """Create a new transcription job.
         
         Args:
             input_file: Path to input audio file
             output_file: Path to output transcription file
             model: Optional model override
+            context: Optional context about the meeting for better transcription
             
         Returns:
             TranscriptionJob object
@@ -38,7 +39,8 @@ class TranscriptionEngine:
             input_file=input_file,
             output_file=output_file,
             model=job_model,
-            config=self.config
+            config=self.config,
+            context=context
         )
         
         return job
@@ -120,8 +122,8 @@ class TranscriptionEngine:
         if progress_callback:
             progress_callback(chunk_index, len(job.chunks), f"Processing chunk {chunk_index + 1}/{len(job.chunks)}")
         
-        # Transcribe chunk
-        result = self.llm_client.transcribe_chunk(chunk, audio_bytes, context)
+        # Transcribe chunk (pass job context and chunk context)
+        result = self.llm_client.transcribe_chunk(chunk, audio_bytes, context, job.context)
         
         # Timestamps are already absolute from llm_client.parse_transcription_response
         return result
@@ -168,6 +170,7 @@ class TranscriptionEngine:
                        input_file: Path, 
                        output_file: Path, 
                        model: Optional[str] = None,
+                       context: Optional[str] = None,
                        progress_callback: Optional[Callable] = None) -> TranscriptionJob:
         """Transcribe an audio file from start to finish.
         
@@ -175,6 +178,7 @@ class TranscriptionEngine:
             input_file: Path to input audio file
             output_file: Path to output transcription file
             model: Optional model override
+            context: Optional context about the meeting for better transcription
             progress_callback: Optional callback for progress updates
             
         Returns:
@@ -183,7 +187,7 @@ class TranscriptionEngine:
         logger.info(f"Starting transcription: {input_file} -> {output_file}")
         
         # Create and prepare job
-        job = self.create_job(input_file, output_file, model)
+        job = self.create_job(input_file, output_file, model, context)
         job = self.prepare_job(job)
         
         # Process job

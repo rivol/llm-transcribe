@@ -126,6 +126,7 @@ class TranscriptionJob(BaseModel):
     output_file: Path = Field(description="Output transcription file path")
     model: str = Field(description="LLM model to use")
     config: Config = Field(description="Configuration for this job")
+    context: Optional[str] = Field(default=None, description="Extra context about the meeting for better transcription")
     chunks: List[ChunkData] = Field(default_factory=list, description="Audio chunks")
     results: List[TranscriptionResult] = Field(default_factory=list, description="Transcription results")
     started_at: Optional[datetime] = Field(default=None, description="When the job started")

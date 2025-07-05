@@ -96,21 +96,27 @@ If you are provided with context from a previous chunk, use it to maintain speak
         """
         return base64.b64encode(audio_bytes).decode('utf-8')
     
-    def create_messages(self, audio_bytes: bytes, chunk_start_seconds: float, context: Optional[str] = None) -> List[dict]:
+    def create_messages(self, audio_bytes: bytes, chunk_start_seconds: float, context: Optional[str] = None, meeting_context: Optional[str] = None) -> List[dict]:
         """Create message array for LLM API.
         
         Args:
             audio_bytes: Audio data as bytes
             chunk_start_seconds: Start time of this chunk in seconds
             context: Optional context from previous chunk
+            meeting_context: Optional context about the meeting for better transcription
             
         Returns:
             List of message dictionaries
         """
+        # Create system message with optional meeting context
+        system_content = self.system_message
+        if meeting_context:
+            system_content += f"\n\nAdditional context for this meeting:\n{meeting_context}\n\nUse this context to better understand the conversation and improve transcription accuracy."
+        
         messages = [
             {
                 "role": "system",
-                "content": self.system_message
+                "content": system_content
             }
         ]
         
@@ -318,13 +324,14 @@ Start your output by repeating the context lines exactly, then add new transcrip
         
         return lines
     
-    def transcribe_chunk(self, chunk: ChunkData, audio_bytes: bytes, context: Optional[str] = None) -> TranscriptionResult:
+    def transcribe_chunk(self, chunk: ChunkData, audio_bytes: bytes, context: Optional[str] = None, meeting_context: Optional[str] = None) -> TranscriptionResult:
         """Transcribe a single audio chunk.
         
         Args:
             chunk: ChunkData object
             audio_bytes: Audio data as bytes
             context: Optional context from previous chunk
+            meeting_context: Optional context about the meeting for better transcription
             
         Returns:
             TranscriptionResult object
@@ -333,11 +340,13 @@ Start your output by repeating the context lines exactly, then add new transcrip
         
         try:
             # Create messages
-            messages = self.create_messages(audio_bytes, chunk.start_time_seconds, context)
+            messages = self.create_messages(audio_bytes, chunk.start_time_seconds, context, meeting_context)
             
             logger.info(f"Transcribing chunk {chunk.chunk_index} with model {self.model}")
             if context:
                 logger.debug(f"Using context: {context[:100]}...")
+            if meeting_context:
+                logger.debug(f"Using meeting context: {meeting_context[:100]}...")
             
             # Log message structure without the actual audio data
             logger.debug(f"Sending {len(messages)} messages, audio size: {len(audio_bytes)} bytes")
