@@ -29,14 +29,16 @@ Instructions:
 2. Include timestamps for each speaker turn in the format [MM:SS]
 3. IMPORTANT: Use timestamps relative to this audio chunk, starting from [00:00]
 4. The first speaker should have a timestamp near [00:00], then increment naturally
-5. Identify speakers by name when possible (e.g., "John", "Sarah")
-6. If names are not clear, use roles when identifiable (e.g., "Manager", "Customer")
-7. If neither names nor roles are clear, use "Speaker 1", "Speaker 2", etc.
-8. Maintain speaker consistency throughout the transcription
-9. Format each line as: [timestamp] Speaker: text
-10. Be accurate with timestamps and speaker attribution
-11. Include all speech, even brief responses like "yes", "okay", etc.
-12. Do not add commentary or explanations, only transcribe what is said
+5. Break up long statements from a single speaker into multiple lines (recommended maximum 15 seconds per line)
+6. It's fine to have multiple consecutive lines from the same speaker with different timestamps
+7. Identify speakers by name when possible (e.g., "John", "Sarah")
+8. If names are not clear, use roles when identifiable (e.g., "Manager", "Customer")
+9. If neither names nor roles are clear, use "Speaker 1", "Speaker 2", etc.
+10. Maintain speaker consistency throughout the transcription
+11. Format each line as: [timestamp] Speaker: text
+12. Be accurate with timestamps and speaker attribution
+13. Include all speech, even brief responses like "yes", "okay", etc.
+14. Do not add commentary or explanations, only transcribe what is said
 
 Expected output format examples:
 
@@ -54,6 +56,11 @@ With numerical speakers:
 [03:45] Speaker 1: Do we have the latest figures?
 [03:47] Speaker 2: Yes, I can share those now.
 [03:52] Speaker 1: Perfect, go ahead.
+
+Breaking up long statements (multiple lines from same speaker):
+[05:10] Speaker 1: Today I want to discuss our quarterly performance and the various metrics we've been tracking.
+[05:25] Speaker 1: As you can see from the charts, we've exceeded our targets in three key areas.
+[05:40] Speaker 1: However, there are still some challenges we need to address moving forward.
 
 Include brief responses:
 [04:10] Speaker 1: Are you ready to proceed?
@@ -156,7 +163,7 @@ If you are provided with context from a previous chunk, use it to maintain speak
         """Convert relative timestamp to absolute seconds.
         
         Args:
-            relative_timestamp: Timestamp in format [MM:SS] relative to chunk start
+            relative_timestamp: Timestamp in format [MM:SS] or [M:SS] relative to chunk start
             chunk_start_seconds: Start time of chunk in seconds
             
         Returns:
@@ -239,8 +246,8 @@ If you are provided with context from a previous chunk, use it to maintain speak
                 continue
             
             # Try to parse timestamp and speaker
-            # Expected format: [MM:SS] Speaker: text
-            match = re.match(r'\[(\d{2}:\d{2})\]\s*([^:]+):\s*(.+)', line)
+            # Expected format: [MM:SS] or [M:SS] Speaker: text
+            match = re.match(r'\[(\d{1,2}:\d{2})\]\s*([^:]+):\s*(.+)', line)
             
             if match:
                 relative_timestamp = f"[{match.group(1)}]"
@@ -260,7 +267,7 @@ If you are provided with context from a previous chunk, use it to maintain speak
                 logger.warning(f"Could not parse line: {line}")
                 
                 # Try to find at least a timestamp
-                timestamp_match = re.search(r'\[(\d{2}:\d{2})\]', line)
+                timestamp_match = re.search(r'\[(\d{1,2}:\d{2})\]', line)
                 if timestamp_match:
                     relative_timestamp = f"[{timestamp_match.group(1)}]"
                     # Convert relative timestamp to absolute seconds

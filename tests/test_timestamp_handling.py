@@ -76,6 +76,15 @@ class TestTimestampHandling:
         result = client._convert_relative_to_absolute_seconds("invalid", 540.0)
         assert result == 540.0
     
+    def test_convert_relative_to_absolute_seconds_single_digit_minutes(self):
+        """Test converting relative timestamp with single digit minutes [M:SS]."""
+        client = LLMClient()
+        
+        # Test single digit minute timestamps
+        assert client._convert_relative_to_absolute_seconds("[1:03]", 540.0) == 603.0  # 540 + 63
+        assert client._convert_relative_to_absolute_seconds("[5:30]", 540.0) == 870.0  # 540 + 330
+        assert client._convert_relative_to_absolute_seconds("[9:45]", 540.0) == 1125.0  # 540 + 585
+    
     def test_parse_transcription_response_basic(self):
         """Test parsing basic transcription response."""
         client = LLMClient()
@@ -161,6 +170,27 @@ class TestTimestampHandling:
         assert len(lines) == 2
         assert lines[0].speaker == "Alice"
         assert lines[1].speaker == "Bob"
+    
+    def test_parse_transcription_response_single_digit_minutes(self):
+        """Test parsing response with single digit minutes [M:SS] format."""
+        client = LLMClient()
+        
+        response = "[1:03] Speaker 1: Hmm. Cool.\n[5:30] Speaker 2: That's interesting."
+        chunk_start_seconds = 540.0  # 9 minutes
+        
+        lines = client.parse_transcription_response(response, chunk_start_seconds)
+        
+        assert len(lines) == 2
+        
+        # Check first line
+        assert lines[0].timestamp == 603.0  # 540 + 63
+        assert lines[0].speaker == "Speaker 1"
+        assert lines[0].text == "Hmm. Cool."
+        
+        # Check second line
+        assert lines[1].timestamp == 870.0  # 540 + 330
+        assert lines[1].speaker == "Speaker 2"
+        assert lines[1].text == "That's interesting."
 
 
 class TestTimestampIntegration:
