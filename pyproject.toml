@@ -12,3 +12,8 @@ dependencies = [
     "rich>=14.0.0",
     "typer>=0.16.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+]
