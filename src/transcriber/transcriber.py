@@ -88,50 +88,6 @@ class TranscriptionEngine:
             logger.debug(f"Using fallback context: {len(fallback_context)} characters")
             return fallback_context
     
-    def adjust_timestamps(self, result: TranscriptionResult, chunk_start_seconds: float) -> TranscriptionResult:
-        """Adjust timestamps in transcription result to absolute time.
-        
-        Args:
-            result: TranscriptionResult to adjust
-            chunk_start_seconds: Start time of chunk in seconds
-            
-        Returns:
-            TranscriptionResult with adjusted timestamps
-        """
-        adjusted_lines = []
-        
-        for line in result.lines:
-            # Parse timestamp
-            timestamp_str = line.timestamp.strip('[]')
-            try:
-                time_parts = timestamp_str.split(':')
-                chunk_seconds = int(time_parts[0]) * 3600 + int(time_parts[1]) * 60 + int(time_parts[2])
-                
-                # Calculate absolute time
-                absolute_seconds = chunk_start_seconds + chunk_seconds
-                
-                # Convert back to timestamp format
-                hours = int(absolute_seconds // 3600)
-                minutes = int((absolute_seconds % 3600) // 60)
-                seconds = int(absolute_seconds % 60)
-                
-                new_timestamp = f"[{hours:02d}:{minutes:02d}:{seconds:02d}]"
-                
-                # Create new line with adjusted timestamp
-                adjusted_line = line.copy()
-                adjusted_line.timestamp = new_timestamp
-                adjusted_lines.append(adjusted_line)
-                
-            except (ValueError, IndexError):
-                # If timestamp parsing fails, keep original
-                logger.warning(f"Could not parse timestamp: {line.timestamp}")
-                adjusted_lines.append(line)
-        
-        # Create new result with adjusted lines
-        adjusted_result = result.copy()
-        adjusted_result.lines = adjusted_lines
-        
-        return adjusted_result
     
     def process_chunk(self, job: TranscriptionJob, chunk_index: int, progress_callback: Optional[Callable] = None) -> TranscriptionResult:
         """Process a single chunk.
@@ -167,10 +123,7 @@ class TranscriptionEngine:
         # Transcribe chunk
         result = self.llm_client.transcribe_chunk(chunk, audio_bytes, context)
         
-        # Adjust timestamps to absolute time
-        if result.lines:
-            result = self.adjust_timestamps(result, chunk.start_time_seconds)
-        
+        # Timestamps are already absolute from llm_client.parse_transcription_response
         return result
     
     def process_job(self, job: TranscriptionJob, progress_callback: Optional[Callable] = None) -> TranscriptionJob:

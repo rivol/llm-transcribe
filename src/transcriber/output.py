@@ -62,21 +62,10 @@ class OutputHandler:
         
         for result in sorted_results:
             for line in result.lines:
-                # Parse timestamp to get seconds
-                timestamp_str = line.timestamp.strip('[]')
-                try:
-                    time_parts = timestamp_str.split(':')
-                    line_seconds = int(time_parts[0]) * 3600 + int(time_parts[1]) * 60 + int(time_parts[2])
-                    
-                    # Only include lines that are after the last timestamp
-                    # This helps remove duplicates from overlapping chunks
-                    if line_seconds > last_timestamp_seconds:
-                        all_lines.append(str(line))
-                        last_timestamp_seconds = line_seconds
-                        
-                except (ValueError, IndexError):
-                    # If timestamp parsing fails, include the line anyway
+                # Timestamps are already in seconds as float
+                if line.timestamp > last_timestamp_seconds:
                     all_lines.append(str(line))
+                    last_timestamp_seconds = line.timestamp
         
         return all_lines
     
@@ -214,7 +203,7 @@ Performance:
                     "chunk_index": result.chunk_index,
                     "lines": [
                         {
-                            "timestamp": line.timestamp,
+                            "timestamp": line.formatted_timestamp,
                             "speaker": line.speaker,
                             "text": line.text
                         }

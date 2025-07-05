@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, List, Optional
 
 from pydantic import BaseModel, Field, validator
+from .timestamp_utils import format_timestamp, parse_timestamp
 from pydub import AudioSegment
 
 
@@ -61,19 +62,23 @@ class ChunkData(BaseModel):
 class TranscriptionLine(BaseModel):
     """A single line of transcription."""
     
-    timestamp: str = Field(description="Timestamp in format [HH:MM:SS]")
+    timestamp: float = Field(description="Timestamp in seconds from start of audio")
     speaker: str = Field(description="Speaker name or identifier")
     text: str = Field(description="Transcribed text")
     
     @validator('timestamp')
     def validate_timestamp(cls, v):
-        # Basic validation for timestamp format [HH:MM:SS]
-        if not v.startswith('[') or not v.endswith(']'):
-            raise ValueError("Timestamp must be in format [HH:MM:SS]")
+        if v < 0:
+            raise ValueError("Timestamp must be non-negative")
         return v
     
+    @property
+    def formatted_timestamp(self) -> str:
+        """Get timestamp formatted as [HH:MM:SS]."""
+        return format_timestamp(self.timestamp)
+    
     def __str__(self) -> str:
-        return f"{self.timestamp} {self.speaker}: {self.text}"
+        return f"{self.formatted_timestamp} {self.speaker}: {self.text}"
 
 
 class TranscriptionResult(BaseModel):
@@ -103,24 +108,13 @@ class TranscriptionResult(BaseModel):
         
         # Calculate the last minute timestamp
         chunk_start_minutes = self.chunk_index * (chunk_duration_minutes - 1)  # Account for overlap
-        last_minute_start = chunk_start_minutes + chunk_duration_minutes - 1
+        last_minute_start_seconds = (chunk_start_minutes + chunk_duration_minutes - 1) * 60
         
-        # Convert to seconds for comparison
-        last_minute_start_seconds = last_minute_start * 60
-        
+        # Find lines from the last minute (timestamps are already in seconds)
         context_lines = []
         for line in self.lines:
-            # Parse timestamp to get seconds
-            timestamp_str = line.timestamp.strip('[]')
-            try:
-                time_parts = timestamp_str.split(':')
-                line_seconds = int(time_parts[0]) * 3600 + int(time_parts[1]) * 60 + int(time_parts[2])
-                
-                if line_seconds >= last_minute_start_seconds:
-                    context_lines.append(line)
-            except (ValueError, IndexError):
-                # Skip lines with invalid timestamps
-                continue
+            if line.timestamp >= last_minute_start_seconds:
+                context_lines.append(line)
         
         return "\n".join(str(line) for line in context_lines)
 

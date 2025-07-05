@@ -10,6 +10,7 @@ import litellm
 from litellm import completion
 
 from .models import ChunkData, TranscriptionLine, TranscriptionResult
+from .timestamp_utils import format_timestamp, parse_timestamp_from_text
 
 logger = logging.getLogger(__name__)
 
@@ -140,12 +141,8 @@ If you are provided with context from a previous chunk, use it to maintain speak
                 if relative_seconds < 0:
                     relative_seconds = 0
                 
-                # Convert back to HH:MM:SS format
-                rel_hours = int(relative_seconds // 3600)
-                rel_minutes = int((relative_seconds % 3600) // 60)
-                rel_secs = int(relative_seconds % 60)
-                
-                return f"[{rel_hours:02d}:{rel_minutes:02d}:{rel_secs:02d}]"
+                # Convert back to HH:MM:SS format using utility
+                return format_timestamp(relative_seconds)
             except (ValueError, IndexError):
                 # Return original if parsing fails
                 return match.group(0)
@@ -153,15 +150,15 @@ If you are provided with context from a previous chunk, use it to maintain speak
         # Replace all timestamps [HH:MM:SS] with relative versions
         return re.sub(r'\[(\d{2}:\d{2}:\d{2})\]', convert_timestamp, context)
     
-    def _convert_relative_to_absolute_timestamp(self, relative_timestamp: str, chunk_start_seconds: float) -> str:
-        """Convert relative timestamp to absolute timestamp.
+    def _convert_relative_to_absolute_seconds(self, relative_timestamp: str, chunk_start_seconds: float) -> float:
+        """Convert relative timestamp to absolute seconds.
         
         Args:
             relative_timestamp: Timestamp in format [HH:MM:SS] relative to chunk start
             chunk_start_seconds: Start time of chunk in seconds
             
         Returns:
-            Absolute timestamp in format [HH:MM:SS]
+            Absolute timestamp in seconds
         """
         try:
             # Parse relative timestamp
@@ -170,17 +167,10 @@ If you are provided with context from a previous chunk, use it to maintain speak
             relative_seconds = int(time_parts[0]) * 3600 + int(time_parts[1]) * 60 + int(time_parts[2])
             
             # Convert to absolute seconds
-            absolute_seconds = relative_seconds + chunk_start_seconds
-            
-            # Convert back to HH:MM:SS format
-            abs_hours = int(absolute_seconds // 3600)
-            abs_minutes = int((absolute_seconds % 3600) // 60)
-            abs_secs = int(absolute_seconds % 60)
-            
-            return f"[{abs_hours:02d}:{abs_minutes:02d}:{abs_secs:02d}]"
+            return relative_seconds + chunk_start_seconds
         except (ValueError, IndexError):
-            # Return original if parsing fails
-            return relative_timestamp
+            # Return 0 if parsing fails
+            return chunk_start_seconds
     
     def _log_llm_messages(self, messages: List[dict]) -> None:
         """Log LLM messages in verbose mode, excluding audio data.
@@ -250,11 +240,11 @@ If you are provided with context from a previous chunk, use it to maintain speak
                 speaker = match.group(2).strip()
                 text = match.group(3).strip()
                 
-                # Convert relative timestamp to absolute
-                absolute_timestamp = self._convert_relative_to_absolute_timestamp(relative_timestamp, chunk_start_seconds)
+                # Convert relative timestamp to absolute seconds
+                absolute_seconds = self._convert_relative_to_absolute_seconds(relative_timestamp, chunk_start_seconds)
                 
                 lines.append(TranscriptionLine(
-                    timestamp=absolute_timestamp,
+                    timestamp=absolute_seconds,
                     speaker=speaker,
                     text=text
                 ))
@@ -266,8 +256,8 @@ If you are provided with context from a previous chunk, use it to maintain speak
                 timestamp_match = re.search(r'\[(\d{2}:\d{2}:\d{2})\]', line)
                 if timestamp_match:
                     relative_timestamp = f"[{timestamp_match.group(1)}]"
-                    # Convert relative timestamp to absolute
-                    absolute_timestamp = self._convert_relative_to_absolute_timestamp(relative_timestamp, chunk_start_seconds)
+                    # Convert relative timestamp to absolute seconds
+                    absolute_seconds = self._convert_relative_to_absolute_seconds(relative_timestamp, chunk_start_seconds)
                     
                     # Use the rest as speaker + text
                     remaining = line.replace(timestamp_match.group(0), '').strip()
@@ -280,7 +270,7 @@ If you are provided with context from a previous chunk, use it to maintain speak
                         text = remaining
                     
                     lines.append(TranscriptionLine(
-                        timestamp=absolute_timestamp,
+                        timestamp=absolute_seconds,
                         speaker=speaker,
                         text=text
                     ))
