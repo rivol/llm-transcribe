@@ -7,7 +7,8 @@ import time
 from typing import List, Optional
 
 import litellm
-from litellm import completion
+import stamina
+from litellm import completion, completion_cost
 
 from .models import ChunkData, TranscriptionLine, TranscriptionResult
 from .timestamp_utils import format_timestamp, parse_timestamp_from_text
@@ -20,6 +21,15 @@ class LLMClient:
     
     def __init__(self, model: str = "gemini-2.5-flash"):
         self.model = model
+        
+        # Define which exceptions should be retried
+        self.retryable_exceptions = (
+            litellm.RateLimitError,
+            litellm.APIConnectionError,
+            litellm.ServiceUnavailableError,
+            litellm.Timeout,
+            litellm.APIError,  # Generic API errors that might be temporary
+        )
         
         # System message for transcription
         self.system_message = """You are a professional transcriptionist. Your task is to transcribe audio content with high accuracy.
@@ -192,6 +202,40 @@ Start your output by repeating the context lines exactly, then add new transcrip
         # Replace all timestamps [HH:MM:SS] with relative versions
         return re.sub(r'\[(\d{2}:\d{2}:\d{2})\]', convert_timestamp, context)
     
+    def _make_llm_call_with_retry(self, messages: List[dict], **kwargs) -> str:
+        """Make LLM API call with retry logic.
+        
+        Args:
+            messages: List of message dictionaries
+            **kwargs: Additional arguments for completion()
+            
+        Returns:
+            Response text from LLM
+            
+        Raises:
+            Exception: If all retries fail or non-retryable error occurs
+        """
+        @stamina.retry(on=self.retryable_exceptions + (ValueError,), attempts=3, wait_initial=1.0, wait_max=10.0)
+        def _call_llm():
+            response = completion(
+                model=self.model,
+                messages=messages,
+                **kwargs
+            )
+
+            # Check for empty response
+            response_text = response.choices[0].message.content
+            if not response_text or not response_text.strip():
+                raise ValueError("Empty response from LLM")
+            
+            return response_text
+        
+        try:
+            return _call_llm()
+        except Exception as e:
+            logger.error(f"LLM call failed after retries: {e}")
+            raise
+    
     def _convert_relative_to_absolute_seconds(self, relative_timestamp: str, chunk_start_seconds: float) -> float:
         """Convert relative timestamp to absolute seconds.
         
@@ -354,16 +398,13 @@ Start your output by repeating the context lines exactly, then add new transcrip
             # Log messages in verbose mode (excluding audio data)
             self._log_llm_messages(messages)
             
-            # Make API call
-            response = completion(
-                model=self.model,
-                messages=messages,
-                max_tokens=4000,  # Generous limit for transcription
+            # Make API call with retry logic
+            response_text = self._make_llm_call_with_retry(
+                messages,
+                max_tokens=16000,  # Generous limit for transcription
                 temperature=0.1,  # Low temperature for consistent transcription
+                reasoning_effort="low",
             )
-            
-            # Extract response text
-            response_text = response.choices[0].message.content
             
             # Log LLM response in verbose mode
             logger.debug(f"LLM Response:\n{response_text}")
@@ -411,14 +452,13 @@ Start your output by repeating the context lines exactly, then add new transcrip
             # Log test messages in verbose mode
             self._log_llm_messages(test_messages)
             
-            response = completion(
-                model=self.model,
-                messages=test_messages,
+            # Use retry logic for connection test
+            response_text = self._make_llm_call_with_retry(
+                test_messages,
                 max_tokens=10,
-                temperature=0
-            )
-            
-            response_text = response.choices[0].message.content.strip()
+                temperature=0,
+                reasoning_effort="low",
+            ).strip()
             logger.debug(f"Test LLM Response: {response_text}")
             logger.info(f"Connection test successful: {response_text}")
             return True

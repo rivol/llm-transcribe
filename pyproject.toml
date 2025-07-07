@@ -10,6 +10,7 @@ dependencies = [
     "pydantic>=2.11.7",
     "pydub>=0.25.1",
     "rich>=14.0.0",
+    "stamina>=24.2.0",
     "typer>=0.16.0",
 ]
 
