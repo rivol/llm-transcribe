@@ -245,6 +245,9 @@ def main(
             report_file = output.with_suffix('.report.txt')
             console.print(f"[blue]Summary report:[/blue] {report_file}")
         
+        # Show cost summary
+        engine.llm_client.print_cost_summary()
+        
     except Exception as e:
         console.print(f"[red]Error exporting results:[/red] {e}")
         raise typer.Exit(1)

@@ -21,6 +21,8 @@ class LLMClient:
     
     def __init__(self, model: str = "gemini-2.5-flash"):
         self.model = model
+        self.total_cost = 0.0
+        self.request_count = 0
         
         # Define which exceptions should be retried
         self.retryable_exceptions = (
@@ -222,6 +224,11 @@ Start your output by repeating the context lines exactly, then add new transcrip
                 messages=messages,
                 **kwargs
             )
+
+            # Track cost and request count even for invalid responses
+            cost = completion_cost(completion_response=response)
+            self.total_cost += cost
+            self.request_count += 1
 
             # Check for empty response
             response_text = response.choices[0].message.content
@@ -466,3 +473,8 @@ Start your output by repeating the context lines exactly, then add new transcrip
         except Exception as e:
             logger.error(f"Connection test failed: {e}")
             return False
+    
+    def print_cost_summary(self) -> None:
+        """Print a summary of the total cost and request count."""
+        print(f"Total cost: ${self.total_cost:.6f}")
+        print(f"Total requests: {self.request_count}")
