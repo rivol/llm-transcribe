@@ -120,9 +120,20 @@ def main(
         None,
         "-c", "--context",
         help="Extra context about the meeting (e.g., 'Meeting between John and Kate about Q3 revenue projections')"
+    ),
+    version: bool = typer.Option(
+        False,
+        "--version",
+        help="Show version information"
     )
 ):
     """Transcribe audio files using Large Language Models."""
+    
+    # Handle version flag
+    if version:
+        from . import __version__
+        console.print(f"transcriber v{__version__}")
+        raise typer.Exit()
     
     # Setup logging
     setup_logging(verbose)
@@ -253,44 +264,6 @@ def main(
         raise typer.Exit(1)
 
 
-@app.command()
-def test_setup(
-    model: str = typer.Option(
-        "gemini-2.5-flash",
-        "-m", "--model",
-        help="LLM model to test"
-    ),
-    verbose: bool = typer.Option(
-        False,
-        "-v", "--verbose",
-        help="Enable verbose logging"
-    )
-):
-    """Test the transcription setup."""
-    setup_logging(verbose)
-    
-    console.print(f"[blue]Testing setup with model:[/blue] {model}")
-    
-    try:
-        engine = TranscriptionEngine(config, model)
-        if engine.test_setup():
-            console.print("[green]Setup test passed![/green]")
-            console.print("✓ LLM connection working")
-            console.print("✓ All dependencies available")
-        else:
-            console.print("[red]Setup test failed![/red]")
-            raise typer.Exit(1)
-            
-    except Exception as e:
-        console.print(f"[red]Error during setup test:[/red] {e}")
-        raise typer.Exit(1)
-
-
-@app.command()
-def version():
-    """Show version information."""
-    from . import __version__
-    console.print(f"transcriber v{__version__}")
 
 
 if __name__ == "__main__":

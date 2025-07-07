@@ -11,6 +11,12 @@ transcriber audio.wav
 # Specify model and output filename
 transcriber -m gemini-2.5-flash -o audio.out.txt audio.wav
 
+# Test setup without processing audio
+transcriber audio.wav --test
+
+# Add context for better transcription
+transcriber -c "Meeting between John and Kate about Q3 revenue projections" audio.wav
+
 # Get help
 transcriber --help
 ```
