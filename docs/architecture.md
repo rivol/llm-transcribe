@@ -1,8 +1,8 @@
-# Transcriber Architecture
+# LLM Transcribe Architecture
 
 ## Overview
 
-The Transcriber is a Python CLI tool that transcribes audio files using Large Language Models (LLMs). It handles long audio files by splitting them into overlapping chunks, transcribing each chunk with context from previous chunks, and producing timestamped transcriptions with speaker identification.
+LLM Transcribe is a Python CLI tool that transcribes audio files using Large Language Models (LLMs). It handles long audio files by splitting them into overlapping chunks, transcribing each chunk with context from previous chunks, and producing timestamped transcriptions with speaker identification.
 
 ## Technology Stack
 
@@ -176,7 +176,7 @@ Output Handler → Final Transcript File
 ## Project Structure
 
 ```
-transcriber/
+llm_transcribe/
 ├── cli.py              # Typer-based CLI interface
 ├── models.py           # Pydantic data models
 ├── audio.py            # pydub audio processing  

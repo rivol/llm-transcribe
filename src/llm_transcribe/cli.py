@@ -1,4 +1,4 @@
-"""Command line interface for transcriber."""
+"""Command line interface for llm-transcribe."""
 
 import logging
 import sys
@@ -27,7 +27,7 @@ console = Console()
 
 # Create Typer app
 app = typer.Typer(
-    name="transcriber",
+    name="llm-transcribe",
     help="Audio transcription using Large Language Models",
     add_completion=False,
 )
@@ -132,7 +132,7 @@ def main(
     # Handle version flag
     if version:
         from . import __version__
-        console.print(f"transcriber v{__version__}")
+        console.print(f"llm-transcribe v{__version__}")
         raise typer.Exit()
     
     # Setup logging

@@ -5,8 +5,8 @@ from pathlib import Path
 import json
 import tempfile
 
-from src.transcriber.output import OutputHandler
-from src.transcriber.models import (
+from src.llm_transcribe.output import OutputHandler
+from src.llm_transcribe.models import (
     Config, ChunkData, TranscriptionLine, TranscriptionResult, TranscriptionJob
 )
 

@@ -4,9 +4,9 @@ import pytest
 from unittest.mock import Mock, patch
 from typing import List
 
-from src.transcriber.llm_client import LLMClient
-from src.transcriber.models import ChunkData, TranscriptionLine, TranscriptionResult, TranscriptionJob, Config
-from src.transcriber.output import OutputHandler
+from src.llm_transcribe.llm_client import LLMClient
+from src.llm_transcribe.models import ChunkData, TranscriptionLine, TranscriptionResult, TranscriptionJob, Config
+from src.llm_transcribe.output import OutputHandler
 from pathlib import Path
 
 

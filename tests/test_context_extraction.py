@@ -1,7 +1,7 @@
 """Tests for context extraction logic."""
 
 import pytest
-from src.transcriber.models import TranscriptionLine, TranscriptionResult
+from src.llm_transcribe.models import TranscriptionLine, TranscriptionResult
 
 
 class TestContextExtraction:

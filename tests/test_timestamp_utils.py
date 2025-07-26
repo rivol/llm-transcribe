@@ -1,7 +1,7 @@
 """Tests for timestamp utilities."""
 
 import pytest
-from src.transcriber.timestamp_utils import (
+from src.llm_transcribe.timestamp_utils import (
     format_timestamp,
     parse_timestamp,
     parse_timestamp_from_text,

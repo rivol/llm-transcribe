@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import os
 
-from src.transcriber.models import Config, ChunkData, TranscriptionLine, TranscriptionResult
+from src.llm_transcribe.models import Config, ChunkData, TranscriptionLine, TranscriptionResult
 
 
 @pytest.fixture

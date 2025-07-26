@@ -1,7 +1,7 @@
 """Tests for audio chunking functionality - basic validation tests only."""
 
 import pytest
-from src.transcriber.models import ChunkData
+from src.llm_transcribe.models import ChunkData
 
 
 class TestAudioChunking:

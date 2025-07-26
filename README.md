@@ -1,6 +1,6 @@
-# Transcriber
+# LLM Transcribe
 
-Transcriber is a Python CLI tool that leverages state-of-the-art Large Language Models
+LLM Transcribe is a Python CLI tool that leverages state-of-the-art Large Language Models
 to convert audio files into richly annotated transcriptions with timestamps,
 speaker identification, and emotional context.
 
@@ -14,19 +14,19 @@ including non-verbal cues like laughter, hesitation, or frustration.
 
 ```sh
 # Simplest way, result will be in audio.txt
-transcriber audio.wav
+llm-transcribe audio.wav
 
 # Specify model and output filename
-transcriber -m gemini-2.5-flash -o audio.out.txt audio.wav
+llm-transcribe -m gemini-2.5-flash -o audio.out.txt audio.wav
 
 # Test setup without processing audio
-transcriber audio.wav --test
+llm-transcribe audio.wav --test
 
 # Add context for better transcription
-transcriber -c "Meeting between John and Kate about Q3 revenue projections" audio.wav
+llm-transcribe -c "Meeting between John and Kate about Q3 revenue projections" audio.wav
 
 # Get help
-transcriber --help
+llm-transcribe --help
 ```
 
 ## How it Works

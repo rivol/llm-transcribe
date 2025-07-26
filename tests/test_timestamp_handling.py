@@ -4,9 +4,9 @@ import pytest
 from unittest.mock import Mock, patch
 from typing import List
 
-from src.transcriber.llm_client import LLMClient
-from src.transcriber.models import ChunkData, TranscriptionLine, TranscriptionResult
-from src.transcriber.timestamp_utils import format_timestamp
+from src.llm_transcribe.llm_client import LLMClient
+from src.llm_transcribe.models import ChunkData, TranscriptionLine, TranscriptionResult
+from src.llm_transcribe.timestamp_utils import format_timestamp
 
 
 class TestTimestampHandling:
@@ -113,7 +113,7 @@ class TestTimestampHandling:
         response = "[00:30] Alice: Hello everyone\nMalformed line\n[01:05] Bob: Hi there"
         chunk_start_seconds = 540.0
         
-        with patch('src.transcriber.llm_client.logger') as mock_logger:
+        with patch('src.llm_transcribe.llm_client.logger') as mock_logger:
             lines = client.parse_transcription_response(response, chunk_start_seconds)
             
             # Should log warning about malformed line
@@ -131,7 +131,7 @@ class TestTimestampHandling:
         response = "[00:30] Alice says hello to everyone"
         chunk_start_seconds = 540.0
         
-        with patch('src.transcriber.llm_client.logger') as mock_logger:
+        with patch('src.llm_transcribe.llm_client.logger') as mock_logger:
             lines = client.parse_transcription_response(response, chunk_start_seconds)
             
             # Should log warning about parsing failure
