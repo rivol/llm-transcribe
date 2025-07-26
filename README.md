@@ -1,6 +1,14 @@
 # Transcriber
 
-A Python CLI tool that generates accurate transcriptions for audio files using Large Language Models (LLMs). Handles long audio files by processing them in overlapping chunks while maintaining speaker continuity and context.
+Transcriber is a Python CLI tool that leverages state-of-the-art Large Language Models
+to convert audio files into richly annotated transcriptions with timestamps,
+speaker identification, and emotional context.
+
+Built for developers and technical users who need high-quality transcription with minimal setup,
+it supports all major LLM providers (Google Gemini, OpenAI, Anthropic) through a single interface,
+handles arbitrarily long audio files—from quick voice notes to multi-hour meetings—and
+produces structured output that captures not just what was said but how it was said,
+including non-verbal cues like laughter, hesitation, or frustration.
 
 ## Usage
 
@@ -23,25 +31,26 @@ transcriber --help
 
 ## How it Works
 
-1. **Audio Processing**: Audio file is split into 10-minute chunks with 1-minute overlap.
+1. **Audio Processing**: Audio file is split into 10-minute chunks with 1-minute overlap using a sliding-window approach.
    - Chunks are technically up to 11 minutes long for context preservation
    - Timing: [0:00-10:00], [9:00-20:00], [19:00-30:00], etc.
    - Supports all common audio formats (WAV, MP3, M4A, etc.)
 
-2. **LLM Transcription**: Each chunk is transcribed using your chosen LLM.
-   - LLM receives: system message, audio chunk, context from previous chunk
-   - Context includes the last 1 minute of previous transcription for continuity
-   - Output format: timestamped lines with speaker identification
+2. **LLM Transcription**: Each chunk is transcribed using modern LLMs instead of traditional speech-to-text methods.
+   - Audio converted to base64 and sent with carefully crafted prompts
+   - Context from previous chunk's final minute maintains speaker consistency
+   - Superior accuracy through understanding context and capturing emotional nuances
+   - Output format: timestamped lines with speaker identification and non-verbal cues
 
-3. **Context Management**: Maintains speaker continuity across chunks.
+3. **Context Management**: Maintains conversation flow across chunks.
    - Previous chunk's final minute provides context for the next chunk
-   - Speaker names and roles are preserved across the entire transcription
-   - Handles transitions and maintains conversation flow
+   - Speaker names and roles preserved throughout entire transcription
+   - Handles complex timestamp arithmetic (chunk-relative to absolute time)
 
-4. **Result Merging**: Individual chunk transcriptions are merged into final output.
-   - Timestamps are adjusted to reflect absolute time in the original audio
-   - Speaker labels are consistent throughout the entire transcription
-   - Duplicate content in overlapping regions is intelligently handled
+4. **Production Ready**: Built on modern Python stack with robust error handling.
+   - Retry logic for API failures and rate limiting
+   - Cost tracking and provider abstraction via LiteLLM
+   - Supports all major LLM providers through unified interface
 
 ## Output Format
 
