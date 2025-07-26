@@ -10,6 +10,15 @@ handles arbitrarily long audio files—from quick voice notes to multi-hour meet
 produces structured output that captures not just what was said but how it was said,
 including non-verbal cues like laughter, hesitation, or frustration.
 
+## Installation
+
+We recommend using [uv](https://docs.astral.sh/uv/)
+```sh
+uv tool install llm-transcribe
+```
+
+After installation, the `llm-transcribe` command will be available in your PATH.
+
 ## Usage
 
 ```sh
